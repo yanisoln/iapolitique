@@ -44,6 +44,14 @@ if not duplicates.empty:
 else:
     print("\nAucun doublon détecté.")
 
+# Recherche des contradictions (même texte avec des labels différents)
+contradictions = data.groupby("text").filter(lambda x: x['label'].nunique() > 1)
+if not contradictions.empty:
+    print("\nContradictions détectées :")
+    print(contradictions.sort_values(by="text"))
+else:
+    print("\nAucune contradiction détectée.")
+
 # Statistiques supplémentaires
 # 1. Recherche des négations "ne ... pas"
 def count_negations(text):
@@ -56,11 +64,11 @@ print("\nNombre total de négations (ne ... pas) :", data["negations"].sum())
 data["text_length"] = data["text"].apply(lambda x: len(x.split()) if isinstance(x, str) else 0)
 print("\nLongueur moyenne des textes (en mots) :", round(data["text_length"].mean(), 2))
 
-# 3. Fréquence des mots-clés "oui" et "non"
+# Fonction pour compter des mots spécifiques
 def count_word(word, text):
     return text.lower().split().count(word) if isinstance(text, str) else 0
 
-# 4. Distribution des longueurs des textes
+# 3. Distribution des longueurs des textes
 print("\nDistribution des longueurs des textes (en mots) :")
 print(data["text_length"].describe())
 

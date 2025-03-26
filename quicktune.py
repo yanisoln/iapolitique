@@ -1,11 +1,12 @@
 import torch
 from transformers import BertTokenizer, BertForSequenceClassification, AdamW
+import torch.nn.functional as F
 import pandas as pd
 import os
 import csv
+
 if torch.cuda.is_available():
     print("CUDA disponible ✅")
-    # Vérification d'une opération d'attention optimisée
     try:
         torch.nn.functional.scaled_dot_product_attention(
             torch.randn(1, 12, 128, 64).cuda(),
@@ -17,6 +18,7 @@ if torch.cuda.is_available():
         print("Flash Attention indisponible :", e)
 else:
     print("CUDA non disponible ❌")
+
 # Paramètres globaux
 MODEL_PATH = "./bert_multilingual_classification"
 DATASET_PATH = "./dataset.csv"
@@ -36,18 +38,28 @@ if not os.path.exists(DATASET_PATH):
     with open(DATASET_PATH, "w") as f:
         f.write('"text","label"\n')
 
-# Fonction pour prédire une phrase
-def predict_sentence(text):
+# Fonction pour prédire une phrase avec orientation
+def predict_with_orientation(text):
     model.eval()
     inputs = tokenizer(text, return_tensors="pt", truncation=True, padding="max_length", max_length=MAX_LENGTH)
-    inputs = {key: val.to(device) for key, val in inputs.items()}
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+
     with torch.no_grad():
         outputs = model(**inputs)
     logits = outputs.logits
-    predicted_label = torch.argmax(logits, dim=-1).item()
-    confidence_score = torch.nn.functional.softmax(logits, dim=-1)[0][predicted_label].item()
-    label_map = {0: "⚪ Neutre", 1: "🟦 Droite", 2: "🟥 Gauche"}
-    return label_map[predicted_label], confidence_score, predicted_label
+    probabilities = F.softmax(logits, dim=-1)
+
+    # Prédiction
+    predicted_class = torch.argmax(probabilities, dim=-1).item()
+    confidence_score = probabilities[0][predicted_class].item()
+
+    # Calcul du score d'orientation
+    orientation_map = {0: 0, 1: 1, 2: -1}  # Scores par classe
+    orientation_score = orientation_map[predicted_class] * confidence_score
+
+    # Mapper les labels
+    label_map = {0: "⚪ Neutre", 1: "🔵 Droite", 2: "🔴 Gauche"}
+    return label_map[predicted_class], confidence_score, orientation_score, probabilities.cpu().numpy()
 
 # Fonction pour fine-tuner le modèle avec une nouvelle phrase
 def fine_tune_model(text, label):
@@ -62,23 +74,20 @@ def fine_tune_model(text, label):
     loss.backward()
     optimizer.step()
     print(f"✅ Fine-tuning effectué avec succès. Perte : {loss.item():.4f}")
-
+    
 # Ajouter la correction au dataset
 def add_to_dataset(text, label):
-    # Lire le contenu existant du dataset
     existing_data = set()
     with open(DATASET_PATH, mode='r', encoding='utf-8') as file:
         reader = csv.reader(file, quoting=csv.QUOTE_ALL)
         for row in reader:
-            if len(row) >= 2:  # Vérifie qu'une ligne contient bien un texte et un label
+            if len(row) >= 2:
                 existing_data.add((row[0], row[1]))
 
-    # Vérifier si la phrase est déjà présente
     if (text, str(label)) in existing_data:
         print(f"⚠️ La phrase existe déjà dans le dataset : \"{text}\",\"{label}\"")
         return
 
-    # Ajouter la nouvelle phrase si elle n'existe pas
     with open(DATASET_PATH, mode='a', newline='', encoding='utf-8') as file:
         writer = csv.writer(file, quoting=csv.QUOTE_ALL)
         writer.writerow([text, str(label)])
@@ -86,28 +95,24 @@ def add_to_dataset(text, label):
     print(f"✅ Phrase ajoutée au dataset : \"{text}\",\"{label}\"")
 
 # Menu interactif
-# Menu interactif
 def interactive_menu():
     print("🎉 Bienvenue dans le menu interactif de test et correction BERT 🎉\n")
     while True:
-        # Entrée de la phrase
         text = input("Entrez une phrase (ou 'exit' pour quitter) : ").strip()
         if text.lower() == 'exit':
             print("👋 Au revoir !")
             break
 
-        # Prédiction
-        predicted_label, confidence, label_id = predict_sentence(text)
-        print(f"\n🔍 Prédiction : {predicted_label} (Score de confiance : {confidence:.2f})")
+        predicted_label, confidence, orientation, probabilities = predict_with_orientation(text)
+        print(f"🔍 Prédiction : {predicted_label} (Score de confiance : {confidence:.2f})")
+        print(f"🌡️ Degré d'orientation : {orientation:.2f}")
 
-        # Vérification de la prédiction
         is_correct = input("La prédiction est-elle correcte ? (y/n) : ").strip().lower()
         if is_correct == "y":
             print("👍 Super, prédiction correcte !")
-            # Ajouter au dataset si elle n'est pas déjà présente
-            add_to_dataset(text, label_id)
+            add_to_dataset(text, probabilities.argmax().item())
+
         elif is_correct == "n":
-            # Entrée du bon label
             print("❌ Prédiction incorrecte. Veuillez entrer le bon label :")
             print("0 = Neutre, 1 = Droite, 2 = Gauche")
             correct_label = int(input("Entrez le label correct : ").strip())
@@ -115,12 +120,10 @@ def interactive_menu():
                 print("⚠️ Label invalide. Réessayez.\n")
                 continue
 
-            # Fine-tuning léger et ajout au dataset
             fine_tune_model(text, correct_label)
             add_to_dataset(text, correct_label)
         else:
             print("⚠️ Entrée invalide. Répondez par 'y' ou 'n'.\n")
-
 
 # Lancer le menu interactif
 if __name__ == "__main__":

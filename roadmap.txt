@@ -1,0 +1,22 @@
+- Phase 1 : Phrases simples
+    Objectif : Apprendre les signaux évidents (mots-clés, expressions claires).
+    Dataset : 1000-2000 phrases courtes bien étiquetées.
+    Résultat attendu : Le modèle commence à prédire correctement les orientations basiques.
+
+
+-Phase 2 : Articles courts
+    Objectif : Analyser des contextes plus riches et la tonalité globale.
+    Dataset : Articles courts (200-300 mots).
+    Résultat attendu : Le modèle apprend à pondérer les différentes parties d’un texte pour produire une prédiction finale.
+
+
+-Phase 3 : Phrases subtiles
+    Objectif : Capturer les nuances, les doubles discours, et les biais implicites.
+    Dataset : Extraits où l’orientation n’est pas directement explicite.
+    Résultat attendu : Meilleure compréhension des phrases nuancées.
+
+
+-Phase 4 : Discours complets
+    Objectif : Analyser des textes longs et structurés, incluant plusieurs perspectives.
+    Dataset : Discours politiques, éditoriaux ou articles d’analyse détaillés.
+    Résultat attendu : L’IA généralise son apprentissage à des textes complexes.

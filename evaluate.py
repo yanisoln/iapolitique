@@ -59,10 +59,3 @@ print(f"Texte : {text}")
 print(f"Prédiction : {predicted_label} (Score de confiance : {confidence:.2f})")
 print(f"Degré d'orientation : {orientation:.2f}")
 
-'''
-# Exemple : Donner une phrase et obtenir la prédiction
-text = "Le progrès social ne peut se faire sans une économie dynamique."
-predicted_label = predict_sentence(text)
-print(f"Texte : {text}")
-print(f"Prédiction : {predicted_label}")
-'''
